@@ -48,16 +48,19 @@ export type StatusReactionController = {
 // Constants
 // ─────────────────────────────────────────────────────────────────────────────
 
+// 默认状态表情（恢复为旧版语义清晰映射）
+// queued: 已接单/排队；thinking: 思考；tool/coding/web: 工具阶段；
+// stallSoft/stallHard: 轻/重卡顿提示；done/error: 成功/失败。
 export const DEFAULT_EMOJIS: Required<StatusReactionEmojis> = {
   queued: "👀",
-  thinking: "🤔",
-  tool: "🔥",
-  coding: "👨‍💻",
-  web: "⚡",
-  done: "👍",
-  error: "😱",
-  stallSoft: "🥱",
-  stallHard: "😨",
+  thinking: "🧠",
+  tool: "🛠️",
+  coding: "💻",
+  web: "🌐",
+  done: "✅",
+  error: "❌",
+  stallSoft: "⏳",
+  stallHard: "⚠️",
 };
 
 export const DEFAULT_TIMING: Required<StatusReactionTiming> = {
