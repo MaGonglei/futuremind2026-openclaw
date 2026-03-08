@@ -489,11 +489,11 @@ function resolveFeishuGroupSession(params: {
   const threadReply = Boolean(normalizedThreadId || normalizedRootId);
   const replyInThreadConfigured =
     (groupConfig?.replyInThread ?? feishuCfg?.replyInThread ?? "disabled") === "enabled";
-  const replyInThreadRequireRootId =
-    groupConfig?.replyInThreadRequireRootId ?? feishuCfg?.replyInThreadRequireRootId ?? false;
-  const replyInThread = replyInThreadRequireRootId
-    ? replyInThreadConfigured && Boolean(normalizedRootId)
-    : replyInThreadConfigured || threadReply;
+  // Reply routing rule (confirmed):
+  // 1) If inbound has root_id, always reply in thread.
+  // 2) If no root_id, fall back to replyInThread config (enabled/disabled).
+  // Note: thread_id alone does not force thread replies.
+  const replyInThread = Boolean(normalizedRootId) || replyInThreadConfigured;
 
   const legacyTopicSessionMode =
     groupConfig?.topicSessionMode ?? feishuCfg?.topicSessionMode ?? "disabled";
