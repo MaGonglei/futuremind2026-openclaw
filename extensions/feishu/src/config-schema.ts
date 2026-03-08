@@ -131,16 +131,6 @@ const ReactionNotificationModeSchema = z.enum(["off", "own", "all"]).optional();
  */
 const ReplyInThreadSchema = z.enum(["disabled", "enabled"]).optional();
 
-/**
- * Optional strict guard for thread replies.
- * - false (default): preserve current behavior
- * - true: only send `reply_in_thread=true` when inbound `root_id` exists
- *
- * This enables a conservative rollout where top-level group messages stay in
- * main chat while replies inside existing topics continue in-thread.
- */
-const ReplyInThreadRequireRootIdSchema = z.boolean().optional();
-
 export const FeishuGroupSchema = z
   .object({
     requireMention: z.boolean().optional(),
@@ -152,7 +142,6 @@ export const FeishuGroupSchema = z
     groupSessionScope: GroupSessionScopeSchema,
     topicSessionMode: TopicSessionModeSchema,
     replyInThread: ReplyInThreadSchema,
-    replyInThreadRequireRootId: ReplyInThreadRequireRootIdSchema,
   })
   .strict();
 
@@ -182,7 +171,6 @@ const FeishuSharedConfigShape = {
   streaming: StreamingModeSchema,
   tools: FeishuToolsConfigSchema,
   replyInThread: ReplyInThreadSchema,
-  replyInThreadRequireRootId: ReplyInThreadRequireRootIdSchema,
   reactionNotifications: ReactionNotificationModeSchema,
   typingIndicator: z.boolean().optional(),
   resolveSenderNames: z.boolean().optional(),

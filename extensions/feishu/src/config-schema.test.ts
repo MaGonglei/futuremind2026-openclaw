@@ -143,21 +143,6 @@ describe("FeishuConfigSchema replyInThread", () => {
     });
     expect(result.accounts?.main?.replyInThread).toBe("enabled");
   });
-
-  it("accepts replyInThreadRequireRootId in group/account/top-level config", () => {
-    const top = FeishuConfigSchema.parse({ replyInThreadRequireRootId: true });
-    expect(top.replyInThreadRequireRootId).toBe(true);
-
-    const group = FeishuGroupSchema.parse({ replyInThreadRequireRootId: true });
-    expect(group.replyInThreadRequireRootId).toBe(true);
-
-    const account = FeishuConfigSchema.parse({
-      accounts: {
-        main: { replyInThreadRequireRootId: true },
-      },
-    });
-    expect(account.accounts?.main?.replyInThreadRequireRootId).toBe(true);
-  });
 });
 
 describe("FeishuConfigSchema optimization flags", () => {

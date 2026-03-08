@@ -473,13 +473,11 @@ function resolveFeishuGroupSession(params: {
     groupSessionScope?: GroupSessionScope;
     topicSessionMode?: "enabled" | "disabled";
     replyInThread?: "enabled" | "disabled";
-    replyInThreadRequireRootId?: boolean;
   };
   feishuCfg?: {
     groupSessionScope?: GroupSessionScope;
     topicSessionMode?: "enabled" | "disabled";
     replyInThread?: "enabled" | "disabled";
-    replyInThreadRequireRootId?: boolean;
   };
 }): ResolvedFeishuGroupSession {
   const { chatId, senderOpenId, messageId, rootId, threadId, groupConfig, feishuCfg } = params;
