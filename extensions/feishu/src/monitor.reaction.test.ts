@@ -383,6 +383,76 @@ describe("resolveReactionSyntheticEvent", () => {
   });
 });
 
+describe("Feishu monitor status reporting", () => {
+  beforeEach(() => {
+    handlers = {};
+    createEventDispatcherMock.mockReset();
+    monitorWebSocketMock.mockReset();
+    monitorWebhookMock.mockReset();
+    setFeishuRuntime(
+      createPluginRuntimeMock({
+        channel: {
+          debounce: {
+            createInboundDebouncer,
+            resolveInboundDebounceMs,
+          },
+          text: {
+            hasControlCommand,
+          },
+        },
+      }),
+    );
+  });
+
+  it("emits mode and inbound timestamps through statusSink", async () => {
+    const register = vi.fn((registered: Record<string, (data: unknown) => Promise<void>>) => {
+      handlers = registered;
+    });
+    createEventDispatcherMock.mockReturnValue({ register });
+    const statusSink = vi.fn();
+
+    await monitorSingleAccount({
+      cfg: buildDebounceConfig(),
+      account: buildDebounceAccount(),
+      runtime: {
+        log: vi.fn(),
+        error: vi.fn(),
+        exit: vi.fn(),
+      } as RuntimeEnv,
+      botOpenIdSource: { kind: "prefetched", botOpenId: "ou_bot" },
+      statusSink,
+    });
+
+    expect(statusSink).toHaveBeenCalledWith(expect.objectContaining({ mode: "websocket" }));
+    expect(monitorWebSocketMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        statusSink: expect.any(Function),
+      }),
+    );
+
+    const onMessage = handlers["im.message.receive_v1"];
+    if (!onMessage) {
+      throw new Error("missing im.message.receive_v1 handler");
+    }
+
+    await onMessage(
+      createTextEvent({
+        messageId: "om_status_1",
+        text: "hello",
+      }),
+    );
+
+    expect(statusSink).toHaveBeenCalledWith(
+      expect.objectContaining({
+        lastInboundAt: expect.any(Number),
+      }),
+    );
+
+    // Drain debounce timer to avoid cross-suite timer leakage into fake-timer tests.
+    await new Promise((resolve) => setTimeout(resolve, 30));
+  });
+});
+
 describe("Feishu inbound debounce regressions", () => {
   beforeEach(() => {
     vi.useFakeTimers();

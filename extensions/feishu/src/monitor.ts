@@ -1,3 +1,4 @@
+import type { ChannelAccountSnapshot } from "openclaw/plugin-sdk";
 import type { ClawdbotConfig, RuntimeEnv } from "openclaw/plugin-sdk/feishu";
 import { listEnabledFeishuAccounts, resolveFeishuAccount } from "./accounts.js";
 import {
@@ -13,11 +14,16 @@ import {
   stopFeishuMonitorState,
 } from "./monitor.state.js";
 
+export type FeishuMonitorStatusPatch = Partial<ChannelAccountSnapshot>;
+
+export type FeishuMonitorStatusSink = (accountId: string, patch: FeishuMonitorStatusPatch) => void;
+
 export type MonitorFeishuOpts = {
   config?: ClawdbotConfig;
   runtime?: RuntimeEnv;
   abortSignal?: AbortSignal;
   accountId?: string;
+  statusSink?: FeishuMonitorStatusSink;
 };
 
 export {
@@ -46,6 +52,9 @@ export async function monitorFeishuProvider(opts: MonitorFeishuOpts = {}): Promi
       account,
       runtime: opts.runtime,
       abortSignal: opts.abortSignal,
+      statusSink: opts.statusSink
+        ? (patch) => opts.statusSink?.(account.accountId, patch)
+        : undefined,
     });
   }
 
@@ -83,6 +92,9 @@ export async function monitorFeishuProvider(opts: MonitorFeishuOpts = {}): Promi
         runtime: opts.runtime,
         abortSignal: opts.abortSignal,
         botOpenIdSource: { kind: "prefetched", botOpenId, botName },
+        statusSink: opts.statusSink
+          ? (patch) => opts.statusSink?.(account.accountId, patch)
+          : undefined,
       }),
     );
   }

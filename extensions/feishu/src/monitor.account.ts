@@ -1,5 +1,6 @@
 import * as crypto from "crypto";
 import * as Lark from "@larksuiteoapi/node-sdk";
+import type { ChannelAccountSnapshot } from "openclaw/plugin-sdk";
 import type { ClawdbotConfig, RuntimeEnv, HistoryEntry } from "openclaw/plugin-sdk/feishu";
 import { resolveFeishuAccount } from "./accounts.js";
 import { raceWithTimeoutAndAbort } from "./async.js";
@@ -126,12 +127,15 @@ export async function resolveReactionSyntheticEvent(
   };
 }
 
+type FeishuStatusSink = (patch: Partial<ChannelAccountSnapshot>) => void;
+
 type RegisterEventHandlersContext = {
   cfg: ClawdbotConfig;
   accountId: string;
   runtime?: RuntimeEnv;
   chatHistories: Map<string, HistoryEntry[]>;
   fireAndForget?: boolean;
+  statusSink?: FeishuStatusSink;
 };
 
 /**
@@ -140,13 +144,13 @@ type RegisterEventHandlersContext = {
  */
 function createChatQueue() {
   const queues = new Map<string, Promise<void>>();
-  return (chatId: string, task: () => Promise<void>): Promise<void> => {
-    const prev = queues.get(chatId) ?? Promise.resolve();
+  return (queueKey: string, task: () => Promise<void>): Promise<void> => {
+    const prev = queues.get(queueKey) ?? Promise.resolve();
     const next = prev.then(task, task);
-    queues.set(chatId, next);
+    queues.set(queueKey, next);
     void next.finally(() => {
-      if (queues.get(chatId) === next) {
-        queues.delete(chatId);
+      if (queues.get(queueKey) === next) {
+        queues.delete(queueKey);
       }
     });
     return next;
@@ -231,7 +235,7 @@ function registerEventHandlers(
   eventDispatcher: Lark.EventDispatcher,
   context: RegisterEventHandlersContext,
 ): void {
-  const { cfg, accountId, runtime, chatHistories, fireAndForget } = context;
+  const { cfg, accountId, runtime, chatHistories, fireAndForget, statusSink } = context;
   const core = getFeishuRuntime();
   const inboundDebounceMs = core.channel.debounce.resolveInboundDebounceMs({
     cfg,
@@ -240,6 +244,9 @@ function registerEventHandlers(
   const log = runtime?.log ?? console.log;
   const error = runtime?.error ?? console.error;
   const enqueue = createChatQueue();
+  const markInboundActivity = () => {
+    statusSink?.({ lastInboundAt: Date.now() });
+  };
   const dispatchFeishuMessage = async (event: FeishuMessageEvent) => {
     const chatId = event.message.chat_id?.trim() || "unknown";
     const task = () =>
@@ -380,6 +387,7 @@ function registerEventHandlers(
     "im.message.receive_v1": async (data) => {
       const processMessage = async () => {
         const event = data as unknown as FeishuMessageEvent;
+        markInboundActivity();
         await inboundDebouncer.enqueue(event);
       };
       if (fireAndForget) {
@@ -395,10 +403,12 @@ function registerEventHandlers(
       }
     },
     "im.message.message_read_v1": async () => {
+      markInboundActivity();
       // Ignore read receipts
     },
     "im.chat.member.bot.added_v1": async (data) => {
       try {
+        markInboundActivity();
         const event = data as unknown as FeishuBotAddedEvent;
         log(`feishu[${accountId}]: bot added to chat ${event.chat_id}`);
       } catch (err) {
@@ -407,6 +417,7 @@ function registerEventHandlers(
     },
     "im.chat.member.bot.deleted_v1": async (data) => {
       try {
+        markInboundActivity();
         const event = data as unknown as { chat_id: string };
         log(`feishu[${accountId}]: bot removed from chat ${event.chat_id}`);
       } catch (err) {
@@ -415,6 +426,7 @@ function registerEventHandlers(
     },
     "im.message.reaction.created_v1": async (data) => {
       const processReaction = async () => {
+        markInboundActivity();
         const event = data as FeishuReactionCreatedEvent;
         const myBotId = botOpenIds.get(accountId);
         const syntheticEvent = await resolveReactionSyntheticEvent({
@@ -459,10 +471,12 @@ function registerEventHandlers(
       }
     },
     "im.message.reaction.deleted_v1": async () => {
+      markInboundActivity();
       // Ignore reaction removals
     },
     "card.action.trigger": async (data: unknown) => {
       try {
+        markInboundActivity();
         const event = data as unknown as FeishuCardActionEvent;
         const promise = handleFeishuCardAction({
           cfg,
@@ -495,10 +509,11 @@ export type MonitorSingleAccountParams = {
   runtime?: RuntimeEnv;
   abortSignal?: AbortSignal;
   botOpenIdSource?: BotOpenIdSource;
+  statusSink?: FeishuStatusSink;
 };
 
 export async function monitorSingleAccount(params: MonitorSingleAccountParams): Promise<void> {
-  const { cfg, account, runtime, abortSignal } = params;
+  const { cfg, account, runtime, abortSignal, statusSink } = params;
   const { accountId } = account;
   const log = runtime?.log ?? console.log;
 
@@ -518,6 +533,7 @@ export async function monitorSingleAccount(params: MonitorSingleAccountParams): 
   log(`feishu[${accountId}]: bot open_id resolved: ${botOpenId ?? "unknown"}`);
 
   const connectionMode = account.config.connectionMode ?? "websocket";
+  statusSink?.({ mode: connectionMode, lastError: null });
   if (connectionMode === "webhook" && !account.verificationToken?.trim()) {
     throw new Error(`Feishu account "${accountId}" webhook mode requires verificationToken`);
   }
@@ -536,10 +552,25 @@ export async function monitorSingleAccount(params: MonitorSingleAccountParams): 
     runtime,
     chatHistories,
     fireAndForget: true,
+    statusSink,
   });
 
   if (connectionMode === "webhook") {
-    return monitorWebhook({ account, accountId, runtime, abortSignal, eventDispatcher });
+    return monitorWebhook({
+      account,
+      accountId,
+      runtime,
+      abortSignal,
+      eventDispatcher,
+      statusSink,
+    });
   }
-  return monitorWebSocket({ account, accountId, runtime, abortSignal, eventDispatcher });
+  return monitorWebSocket({
+    account,
+    accountId,
+    runtime,
+    abortSignal,
+    eventDispatcher,
+    statusSink,
+  });
 }
