@@ -2161,6 +2161,67 @@ describe("handleFeishuMessage command authorization", () => {
     );
   });
 
+  it("can require root_id before enabling reply_in_thread", async () => {
+    mockShouldComputeCommandAuthorized.mockReturnValue(false);
+
+    const cfg: ClawdbotConfig = {
+      channels: {
+        feishu: {
+          groups: {
+            "oc-group": {
+              requireMention: false,
+              groupSessionScope: "group",
+              replyInThread: "enabled",
+              replyInThreadRequireRootId: true,
+            },
+          },
+        },
+      },
+    } as ClawdbotConfig;
+
+    const noRootEvent: FeishuMessageEvent = {
+      sender: { sender_id: { open_id: "ou-root-guard" } },
+      message: {
+        message_id: "msg-no-root",
+        chat_id: "oc-group",
+        chat_type: "group",
+        thread_id: "omt_topic_only_thread_id",
+        message_type: "text",
+        content: JSON.stringify({ text: "thread content without root_id" }),
+      },
+    };
+
+    await dispatchMessage({ cfg, event: noRootEvent });
+
+    expect(mockCreateFeishuReplyDispatcher).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        replyInThread: false,
+        threadReply: true,
+      }),
+    );
+
+    const withRootEvent: FeishuMessageEvent = {
+      sender: { sender_id: { open_id: "ou-root-guard" } },
+      message: {
+        message_id: "msg-with-root",
+        chat_id: "oc-group",
+        chat_type: "group",
+        root_id: "om_root_guarded",
+        message_type: "text",
+        content: JSON.stringify({ text: "thread content with root_id" }),
+      },
+    };
+
+    await dispatchMessage({ cfg, event: withRootEvent });
+
+    expect(mockCreateFeishuReplyDispatcher).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        replyInThread: true,
+        threadReply: true,
+      }),
+    );
+  });
+
   it("does not dispatch twice for the same image message_id (concurrent dedupe)", async () => {
     mockShouldComputeCommandAuthorized.mockReturnValue(false);
 

@@ -473,11 +473,13 @@ function resolveFeishuGroupSession(params: {
     groupSessionScope?: GroupSessionScope;
     topicSessionMode?: "enabled" | "disabled";
     replyInThread?: "enabled" | "disabled";
+    replyInThreadRequireRootId?: boolean;
   };
   feishuCfg?: {
     groupSessionScope?: GroupSessionScope;
     topicSessionMode?: "enabled" | "disabled";
     replyInThread?: "enabled" | "disabled";
+    replyInThreadRequireRootId?: boolean;
   };
 }): ResolvedFeishuGroupSession {
   const { chatId, senderOpenId, messageId, rootId, threadId, groupConfig, feishuCfg } = params;
@@ -485,9 +487,13 @@ function resolveFeishuGroupSession(params: {
   const normalizedThreadId = threadId?.trim();
   const normalizedRootId = rootId?.trim();
   const threadReply = Boolean(normalizedThreadId || normalizedRootId);
-  const replyInThread =
-    (groupConfig?.replyInThread ?? feishuCfg?.replyInThread ?? "disabled") === "enabled" ||
-    threadReply;
+  const replyInThreadConfigured =
+    (groupConfig?.replyInThread ?? feishuCfg?.replyInThread ?? "disabled") === "enabled";
+  const replyInThreadRequireRootId =
+    groupConfig?.replyInThreadRequireRootId ?? feishuCfg?.replyInThreadRequireRootId ?? false;
+  const replyInThread = replyInThreadRequireRootId
+    ? replyInThreadConfigured && Boolean(normalizedRootId)
+    : replyInThreadConfigured || threadReply;
 
   const legacyTopicSessionMode =
     groupConfig?.topicSessionMode ?? feishuCfg?.topicSessionMode ?? "disabled";
