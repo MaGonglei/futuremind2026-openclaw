@@ -1,8 +1,8 @@
 import * as http from "http";
 import * as Lark from "@larksuiteoapi/node-sdk";
+import type { ChannelAccountSnapshot } from "openclaw/plugin-sdk";
 import {
   applyBasicWebhookRequestGuards,
-  type ChannelAccountSnapshot,
   type RuntimeEnv,
   installRequestBodyLimitGuard,
 } from "openclaw/plugin-sdk/feishu";

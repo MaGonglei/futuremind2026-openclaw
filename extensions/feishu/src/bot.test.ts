@@ -2122,7 +2122,7 @@ describe("handleFeishuMessage command authorization", () => {
     );
   });
 
-  it("does not force thread replies when only thread_id exists and replyInThread is disabled", async () => {
+  it("sets threadReply when thread_id exists even if replyInThread is disabled", async () => {
     mockShouldComputeCommandAuthorized.mockReturnValue(false);
 
     const cfg: ClawdbotConfig = {
@@ -2156,7 +2156,7 @@ describe("handleFeishuMessage command authorization", () => {
     expect(mockCreateFeishuReplyDispatcher).toHaveBeenCalledWith(
       expect.objectContaining({
         replyInThread: false,
-        threadReply: false,
+        threadReply: true,
       }),
     );
   });
