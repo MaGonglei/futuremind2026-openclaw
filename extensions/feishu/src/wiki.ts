@@ -80,6 +80,49 @@ async function getNode(client: Lark.Client, token: string) {
   };
 }
 
+async function searchNodes(
+  client: Lark.Client,
+  query: string,
+  spaceId?: string,
+  nodeId?: string,
+  pageToken?: string,
+  pageSize?: number,
+) {
+  const res = await client.wiki.v1.node.search({
+    data: {
+      query,
+      space_id: spaceId,
+      node_id: nodeId,
+    },
+    params: {
+      page_token: pageToken,
+      page_size: pageSize,
+    },
+  });
+
+  if (res.code !== 0) {
+    throw new Error(res.msg);
+  }
+
+  return {
+    items:
+      res.data?.items?.map((item) => ({
+        node_id: item.node_id,
+        space_id: item.space_id,
+        obj_type: item.obj_type,
+        title: item.title,
+        url: item.url,
+        icon: item.icon,
+        obj_token: item.obj_token,
+        create_time: item.create_time,
+        update_time: item.update_time,
+        child_num: item.child_num,
+      })) ?? [],
+    has_more: res.data?.has_more ?? false,
+    page_token: res.data?.page_token,
+  };
+}
+
 async function createNode(
   client: Lark.Client,
   spaceId: string,
@@ -178,7 +221,7 @@ export function registerFeishuWikiTools(api: OpenClawPluginApi) {
         name: "feishu_wiki",
         label: "Feishu Wiki",
         description:
-          "Feishu knowledge base operations. Actions: spaces, nodes, get, create, move, rename",
+          "Feishu knowledge base operations. Actions: spaces, nodes, get, search, create, move, rename",
         parameters: FeishuWikiSchema,
         async execute(_toolCallId, params) {
           const p = params as FeishuWikiExecuteParams;
@@ -196,10 +239,16 @@ export function registerFeishuWikiTools(api: OpenClawPluginApi) {
               case "get":
                 return jsonToolResult(await getNode(client, p.token));
               case "search":
-                return jsonToolResult({
-                  error:
-                    "Search is not available. Use feishu_wiki with action: 'nodes' to browse or action: 'get' to lookup by token.",
-                });
+                return jsonToolResult(
+                  await searchNodes(
+                    client,
+                    p.query,
+                    p.space_id,
+                    p.node_id,
+                    p.page_token,
+                    p.page_size,
+                  ),
+                );
               case "create":
                 return jsonToolResult(
                   await createNode(client, p.space_id, p.title, p.obj_type, p.parent_node_token),

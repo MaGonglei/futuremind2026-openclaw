@@ -42,6 +42,31 @@ With parent:
 
 Returns: `node_token`, `obj_token`, `obj_type`, etc. Use `obj_token` with `feishu_doc` to read/write the document.
 
+### Search Wiki Nodes
+
+```json
+{ "action": "search", "query": "roadmap" }
+```
+
+Limit to a knowledge space:
+
+```json
+{ "action": "search", "query": "roadmap", "space_id": "7xxx" }
+```
+
+Limit to a subtree and paginate:
+
+```json
+{
+  "action": "search",
+  "query": "roadmap",
+  "space_id": "7xxx",
+  "node_id": "wikcnRootNode",
+  "page_size": 20,
+  "page_token": "next_page_token"
+}
+```
+
 ### Create Node
 
 ```json

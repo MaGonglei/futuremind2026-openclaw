@@ -19,6 +19,11 @@ export const FeishuWikiSchema = Type.Union([
     action: Type.Literal("search"),
     query: Type.String({ description: "Search query" }),
     space_id: Type.Optional(Type.String({ description: "Limit search to this space (optional)" })),
+    node_id: Type.Optional(
+      Type.String({ description: "Limit search to this node subtree (optional)" }),
+    ),
+    page_token: Type.Optional(Type.String({ description: "Pagination token" })),
+    page_size: Type.Optional(Type.Number({ description: "Page size (default 20, max 50)" })),
   }),
   Type.Object({
     action: Type.Literal("create"),
