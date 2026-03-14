@@ -7,6 +7,7 @@ import type { ChannelMeta, ChannelPlugin, ClawdbotConfig } from "openclaw/plugin
 import {
   buildProbeChannelStatusSummary,
   buildRuntimeAccountStatusSnapshot,
+  createAccountStatusSink,
   createDefaultChannelRuntimeState,
   DEFAULT_ACCOUNT_ID,
   PAIRING_APPROVED_MESSAGE,
@@ -332,7 +333,14 @@ export const feishuPlugin: ChannelPlugin<ResolvedFeishuAccount> = {
   },
   outbound: feishuOutbound,
   status: {
-    defaultRuntime: createDefaultChannelRuntimeState(DEFAULT_ACCOUNT_ID, { port: null }),
+    defaultRuntime: createDefaultChannelRuntimeState(DEFAULT_ACCOUNT_ID, {
+      port: null,
+      connected: false,
+      lastConnectedAt: null,
+      lastDisconnect: null,
+      lastEventAt: null,
+      lastInboundAt: null,
+    }),
     buildChannelSummary: ({ snapshot }) =>
       buildProbeChannelStatusSummary(snapshot, {
         port: snapshot.port ?? null,
@@ -346,6 +354,12 @@ export const feishuPlugin: ChannelPlugin<ResolvedFeishuAccount> = {
       appId: account.appId,
       domain: account.domain,
       ...buildRuntimeAccountStatusSnapshot({ runtime, probe }),
+      connected: runtime?.connected ?? false,
+      ...(runtime?.mode ? { mode: runtime.mode } : {}),
+      lastConnectedAt: runtime?.lastConnectedAt ?? null,
+      lastDisconnect: runtime?.lastDisconnect ?? null,
+      lastEventAt: runtime?.lastEventAt ?? null,
+      lastInboundAt: runtime?.lastInboundAt ?? null,
       port: runtime?.port ?? null,
     }),
   },
@@ -354,6 +368,10 @@ export const feishuPlugin: ChannelPlugin<ResolvedFeishuAccount> = {
       const { monitorFeishuProvider } = await import("./monitor.js");
       const account = resolveFeishuAccount({ cfg: ctx.cfg, accountId: ctx.accountId });
       const port = account.config?.webhookPort ?? null;
+      const statusSink = createAccountStatusSink({
+        accountId: ctx.accountId,
+        setStatus: ctx.setStatus,
+      });
       ctx.setStatus({ accountId: ctx.accountId, port });
       ctx.log?.info(
         `starting feishu[${ctx.accountId}] (mode: ${account.config?.connectionMode ?? "websocket"})`,
@@ -363,6 +381,7 @@ export const feishuPlugin: ChannelPlugin<ResolvedFeishuAccount> = {
         runtime: ctx.runtime,
         abortSignal: ctx.abortSignal,
         accountId: ctx.accountId,
+        statusSink,
       });
     },
   },
