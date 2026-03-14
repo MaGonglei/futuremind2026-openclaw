@@ -20,28 +20,12 @@ import {
 } from "./monitor.state.js";
 import type { ResolvedFeishuAccount } from "./types.js";
 
-export type FeishuStatusSink = (patch: {
-  mode?: string;
-  connected?: boolean;
-  lastConnectedAt?: number | null;
-  lastDisconnect?: {
-    at: number;
-    status?: number;
-    error?: string;
-    loggedOut?: boolean;
-  } | null;
-  lastError?: string | null;
-  lastEventAt?: number | null;
-  lastInboundAt?: number | null;
-}) => void;
-
 export type MonitorTransportParams = {
   account: ResolvedFeishuAccount;
   accountId: string;
   runtime?: RuntimeEnv;
   abortSignal?: AbortSignal;
   eventDispatcher: Lark.EventDispatcher;
-  statusSink?: FeishuStatusSink;
 };
 
 function isFeishuWebhookPayload(value: unknown): value is Record<string, unknown> {
@@ -94,7 +78,6 @@ export async function monitorWebSocket({
   runtime,
   abortSignal,
   eventDispatcher,
-  statusSink,
 }: MonitorTransportParams): Promise<void> {
   const log = runtime?.log ?? console.log;
   log(`feishu[${accountId}]: starting WebSocket connection...`);
@@ -103,32 +86,20 @@ export async function monitorWebSocket({
   wsClients.set(accountId, wsClient);
 
   return new Promise((resolve, reject) => {
-    let cleanedUp = false;
-    const cleanup = (disconnectError?: string) => {
-      if (cleanedUp) {
-        return;
-      }
-      cleanedUp = true;
+    const cleanup = () => {
       wsClients.delete(accountId);
       botOpenIds.delete(accountId);
       botNames.delete(accountId);
-      statusSink?.({
-        connected: false,
-        lastDisconnect: {
-          at: Date.now(),
-          ...(disconnectError ? { error: disconnectError } : {}),
-        },
-      });
     };
 
     const handleAbort = () => {
       log(`feishu[${accountId}]: abort signal received, stopping`);
-      cleanup("aborted before websocket shutdown");
+      cleanup();
       resolve();
     };
 
     if (abortSignal?.aborted) {
-      cleanup("aborted before websocket startup");
+      cleanup();
       resolve();
       return;
     }
@@ -137,17 +108,9 @@ export async function monitorWebSocket({
 
     try {
       wsClient.start({ eventDispatcher });
-      const now = Date.now();
-      statusSink?.({
-        connected: true,
-        lastConnectedAt: now,
-        lastEventAt: now,
-        lastError: null,
-      });
       log(`feishu[${accountId}]: WebSocket client started`);
     } catch (err) {
-      const message = String(err);
-      cleanup(message);
+      cleanup();
       abortSignal?.removeEventListener("abort", handleAbort);
       reject(err);
     }
@@ -160,7 +123,6 @@ export async function monitorWebhook({
   runtime,
   abortSignal,
   eventDispatcher,
-  statusSink,
 }: MonitorTransportParams): Promise<void> {
   const log = runtime?.log ?? console.log;
   const error = runtime?.error ?? console.error;
@@ -233,9 +195,6 @@ export async function monitorWebhook({
           return;
         }
 
-        const now = Date.now();
-        statusSink?.({ lastEventAt: now, lastInboundAt: now });
-
         const { isChallenge, challenge } = Lark.generateChallenge(bodyResult.value, {
           encryptKey: account.encryptKey ?? "",
         });
@@ -271,33 +230,21 @@ export async function monitorWebhook({
   httpServers.set(accountId, server);
 
   return new Promise((resolve, reject) => {
-    let cleanedUp = false;
-    const cleanup = (disconnectError?: string) => {
-      if (cleanedUp) {
-        return;
-      }
-      cleanedUp = true;
+    const cleanup = () => {
       server.close();
       httpServers.delete(accountId);
       botOpenIds.delete(accountId);
       botNames.delete(accountId);
-      statusSink?.({
-        connected: false,
-        lastDisconnect: {
-          at: Date.now(),
-          ...(disconnectError ? { error: disconnectError } : {}),
-        },
-      });
     };
 
     const handleAbort = () => {
       log(`feishu[${accountId}]: abort signal received, stopping Webhook server`);
-      cleanup("aborted before webhook shutdown");
+      cleanup();
       resolve();
     };
 
     if (abortSignal?.aborted) {
-      cleanup("aborted before webhook startup");
+      cleanup();
       resolve();
       return;
     }
@@ -305,20 +252,11 @@ export async function monitorWebhook({
     abortSignal?.addEventListener("abort", handleAbort, { once: true });
 
     server.listen(port, host, () => {
-      const now = Date.now();
-      statusSink?.({
-        connected: true,
-        lastConnectedAt: now,
-        lastEventAt: now,
-        lastError: null,
-      });
       log(`feishu[${accountId}]: Webhook server listening on ${host}:${port}`);
     });
 
     server.on("error", (err) => {
-      const message = String(err);
-      error(`feishu[${accountId}]: Webhook server error: ${message}`);
-      cleanup(message);
+      error(`feishu[${accountId}]: Webhook server error: ${err}`);
       abortSignal?.removeEventListener("abort", handleAbort);
       reject(err);
     });

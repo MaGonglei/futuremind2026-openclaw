@@ -12,14 +12,12 @@ import {
   isWebhookRateLimitedForTest,
   stopFeishuMonitorState,
 } from "./monitor.state.js";
-import type { FeishuStatusSink } from "./monitor.transport.js";
 
 export type MonitorFeishuOpts = {
   config?: ClawdbotConfig;
   runtime?: RuntimeEnv;
   abortSignal?: AbortSignal;
   accountId?: string;
-  statusSink?: FeishuStatusSink;
 };
 
 export {
@@ -48,7 +46,6 @@ export async function monitorFeishuProvider(opts: MonitorFeishuOpts = {}): Promi
       account,
       runtime: opts.runtime,
       abortSignal: opts.abortSignal,
-      statusSink: opts.statusSink,
     });
   }
 
