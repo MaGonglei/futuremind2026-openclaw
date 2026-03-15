@@ -105,6 +105,7 @@ function createHost() {
     assistantAvatar: null,
     assistantAgentId: null,
     serverVersion: null,
+    chatContextNoticeShowPricingThreshold: true,
     sessionKey: "main",
     chatRunId: null,
     refreshSessionsAfterChat: new Set<string>(),
