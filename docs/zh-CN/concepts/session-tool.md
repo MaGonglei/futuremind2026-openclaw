@@ -106,8 +106,9 @@ x-i18n:
   - 精确回复 `REPLY_SKIP` 以停止来回。
   - 最大轮数为 `session.agentToAgent.maxPingPongTurns`（0–5，默认 5）。
 - 循环结束后，OpenClaw 运行**智能体到智能体通告步骤**（仅目标智能体）：
-  - 精确回复 `ANNOUNCE_SKIP` 以保持静默。
+  - 精确回复 `ANNOUNCE_SKIP` 以跳过额外的通告改写。
   - 任何其他回复都会发送到目标渠道。
+  - 如果通告步骤保持静默、返回 `ANNOUNCE_SKIP` 或失败，OpenClaw 会在可用时回退为转发目标会话的第 1 轮回复（否则转发最新的非 skip 回复）。
   - 通告步骤包括原始请求 + 第 1 轮回复 + 最新的来回回复。
 
 ## Channel 字段

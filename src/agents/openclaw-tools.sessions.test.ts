@@ -1,10 +1,9 @@
 import path from "node:path";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  addSubagentRunForTests,
-  listSubagentRunsForRequester,
-  resetSubagentRegistryForTests,
-} from "./subagent-registry.js";
+
+let addSubagentRunForTests: typeof import("./subagent-registry.js").addSubagentRunForTests;
+let listSubagentRunsForRequester: typeof import("./subagent-registry.js").listSubagentRunsForRequester;
+let resetSubagentRegistryForTests: typeof import("./subagent-registry.js").resetSubagentRegistryForTests;
 
 const callGatewayMock = vi.fn();
 vi.mock("../gateway/call.js", () => ({
@@ -24,6 +23,7 @@ vi.mock("../config/config.js", async (importOriginal) => {
       tools: {
         // Keep sessions tools permissive in this suite; dedicated visibility tests cover defaults.
         sessions: { visibility: "all" },
+        agentToAgent: { enabled: true, allow: ["*"] },
       },
     }),
     resolveGatewayPort: () => 18789,
@@ -47,6 +47,10 @@ let sessionsModule: typeof import("../config/sessions.js");
 describe("sessions tools", () => {
   beforeAll(async () => {
     sessionsModule = await import("../config/sessions.js");
+    const subagentRegistry = await import("./subagent-registry.js");
+    addSubagentRunForTests = subagentRegistry.addSubagentRunForTests;
+    listSubagentRunsForRequester = subagentRegistry.listSubagentRunsForRequester;
+    resetSubagentRegistryForTests = subagentRegistry.resetSubagentRegistryForTests;
   });
 
   beforeEach(() => {
@@ -469,7 +473,10 @@ describe("sessions tools", () => {
       return {};
     });
 
-    const tool = createOpenClawTools().find((candidate) => candidate.name === "sessions_history");
+    const tool = createOpenClawTools({
+      agentSessionKey: "agent:main:main",
+      agentChannel: "discord",
+    }).find((candidate) => candidate.name === "sessions_history");
     expect(tool).toBeDefined();
     if (!tool) {
       throw new Error("missing sessions_history tool");
@@ -516,7 +523,7 @@ describe("sessions tools", () => {
     let sendCallCount = 0;
     let lastWaitedRunId: string | undefined;
     const replyByRunId = new Map<string, string>();
-    const requesterKey = "discord:group:req";
+    const requesterKey = "agent:main:discord:group:req";
     callGatewayMock.mockImplementation(async (opts: unknown) => {
       const request = opts as { method?: string; params?: unknown };
       calls.push(request);
@@ -676,7 +683,7 @@ describe("sessions tools", () => {
     });
 
     const tool = createOpenClawTools({
-      agentSessionKey: "main",
+      agentSessionKey: "agent:main:main",
       agentChannel: "discord",
     }).find((candidate) => candidate.name === "sessions_send");
     expect(tool).toBeDefined();
@@ -705,8 +712,8 @@ describe("sessions tools", () => {
     let agentCallCount = 0;
     let lastWaitedRunId: string | undefined;
     const replyByRunId = new Map<string, string>();
-    const requesterKey = "discord:group:req";
-    const targetKey = "discord:group:target";
+    const requesterKey = "agent:main:discord:group:req";
+    const targetKey = "agent:main:discord:group:target";
     let sendParams: { to?: string; channel?: string; message?: string } = {};
     callGatewayMock.mockImplementation(async (opts: unknown) => {
       const request = opts as { method?: string; params?: unknown };

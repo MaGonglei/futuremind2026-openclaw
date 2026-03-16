@@ -108,23 +108,38 @@ export async function runSessionsSendA2AFlow(params: {
       roundOneReply: primaryReply,
       latestReply,
     });
-    const announceReply = await runAgentStep({
-      sessionKey: params.targetSessionKey,
-      message: "Agent-to-agent announce step.",
-      extraSystemPrompt: announcePrompt,
-      timeoutMs: params.announceTimeoutMs,
-      lane: AGENT_LANE_NESTED,
-      sourceSessionKey: params.requesterSessionKey,
-      sourceChannel: params.requesterChannel,
-      sourceTool: "sessions_send",
-    });
-    if (announceTarget && announceReply && announceReply.trim() && !isAnnounceSkip(announceReply)) {
+    const fallbackRelayText = [primaryReply, latestReply]
+      .map((text) => text?.trim() || "")
+      .find((text) => text && !isAnnounceSkip(text) && !isReplySkip(text));
+    let relayText = fallbackRelayText;
+    try {
+      const announceReply = await runAgentStep({
+        sessionKey: params.targetSessionKey,
+        message: "Agent-to-agent announce step.",
+        extraSystemPrompt: announcePrompt,
+        timeoutMs: params.announceTimeoutMs,
+        lane: AGENT_LANE_NESTED,
+        sourceSessionKey: params.requesterSessionKey,
+        sourceChannel: params.requesterChannel,
+        sourceTool: "sessions_send",
+      });
+      const trimmedAnnounceReply = announceReply?.trim() || "";
+      if (trimmedAnnounceReply && !isAnnounceSkip(trimmedAnnounceReply)) {
+        relayText = trimmedAnnounceReply;
+      }
+    } catch (err) {
+      log.warn("sessions_send announce flow failed", {
+        runId: runContextId,
+        error: formatErrorMessage(err),
+      });
+    }
+    if (announceTarget && relayText) {
       try {
         await callGateway({
           method: "send",
           params: {
             to: announceTarget.to,
-            message: announceReply.trim(),
+            message: relayText,
             channel: announceTarget.channel,
             accountId: announceTarget.accountId,
             idempotencyKey: crypto.randomUUID(),

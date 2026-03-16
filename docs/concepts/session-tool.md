@@ -100,8 +100,9 @@ Behavior:
   - Reply exactly `REPLY_SKIP` to stop the ping‑pong.
   - Max turns is `session.agentToAgent.maxPingPongTurns` (0–5, default 5).
 - Once the loop ends, OpenClaw runs the **agent‑to‑agent announce step** (target agent only):
-  - Reply exactly `ANNOUNCE_SKIP` to stay silent.
+  - Reply exactly `ANNOUNCE_SKIP` to skip the extra announce rewrite.
   - Any other reply is sent to the target channel.
+  - If the announce step stays silent, returns `ANNOUNCE_SKIP`, or fails, OpenClaw falls back to relaying the target session's round‑1 reply when available (otherwise the latest non-skip reply).
   - Announce step includes the original request + round‑1 reply + latest ping‑pong reply.
 
 ## Channel Field
